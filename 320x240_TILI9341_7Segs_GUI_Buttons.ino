@@ -3,18 +3,9 @@
 /*
     Name:       320x240_TILI9341_7Segs_GUI_Buttons.ino
     Created:	3/20/2022 9:38:27 AM
-    Author:     OFFICEPC\Marco Flag
+    Author:     Marco Flag
 */
 
-// Visual Micro is in vMicro>General>Tutorial Mode
-// 
-/*
-    Name:       320x240_TILI9341_GUI_Test.ino
-    Created:	3/18/2022 7:33:36 PM
-    Author:     OFFICEPC\Marco Flag
-*/
-
-//#include "SPI.h"
 #include "Adafruit_GFX.h"
 #include "Adafruit_ILI9341.h"
 #include "XPT2046_Touchscreen.h"
@@ -22,7 +13,9 @@
 #include <Fonts/FreeMonoBoldOblique9pt7b.h>
 #include <Fonts/FreeSerifBold9pt7b.h>
 #include "Math.h"
+#include <RotaryEncoder.h>
 
+//Display Colors
 #define BLACK			ILI9341_BLACK      	//0x0000 /*   0,   0,   0 */
 #define NAVY			ILI9341_NAVY       	//0x000F /*   0,   0, 128 */
 #define DARKGREEN		ILI9341_DARKGREEN  	//0x03E0 /*   0, 128,   0 */
@@ -43,11 +36,24 @@
 #define GREENYELLOW		ILI9341_GREENYELLOW //0xAFE5 /*   173, 255,  47 */
 #define PINK			ILI9341_PINK       	//0xF81F
 
+/*variable definitions*/
+boolean rst_clickButton = false;
+boolean mlt_clickButton = false;
+uint32_t Number = 0;
+int Steep = 1;
+int AutoCountFlag = 0;
+int Multiply = 0;
+/*End of variable definitions*/
 
-#define displyBackground BLACK
+//Rotary Encoder definitions
+#define PIN_IN1 2 // interrupt enabled 
+#define PIN_IN2 3 // interrupt enabled
+static int pos = 0;
+static int newPos = 0;
+static int Direction = 0;
+//End of Rotary Encoder paramiters
 
-
-//TFT SPI display - TouchScreen wiring//
+//TFT SPI display - SPI Display/TouchScreen definitions//
 #define TFT_CS 10
 #define TFT_DC 9
 #define TFT_MOSI 11 //Also connected Touchscreen "T_DIN" pin
@@ -55,39 +61,50 @@
 #define TFT_RST 8
 #define TFT_MISO 12 //Also connected Touchscreen "T_DO" pin
 
-#define T_CS 7    //Touchscreen T_CS pin (Chip select)
+#define T_CS 7   //Touchscreen T_CS pin (Chip select)
 #define T_IRQ 2  //Touchscreen T_IRQ pin (Chip interrupt request)
+//End TFT SPI display - SPI Display/TouchScreen wiring//
 
-#define ROTATION 3
-
-/*Start Touch Paramiters*/
+/*Disply/Touch definitions*/
 #define MINPRESSURE 150
 #define MAXPRESSURE 1000
-    // calibration values // These values were captured after Touchscreen calibration.
+#define ROTATION 1
+#define displyBackground BLACK
+    //Calibration values // These values were captured after Touchscreen calibration.
 float xCalM = -0.09, yCalM = 0.07; // gradients
-float xCalC = 332.57, yCalC = -14.94; // y axis crossing points
+float xCalC = 335.01, yCalC = -15.18; // y axis crossing points
 TS_Point p; // This Class is defined in the XPT2046 library for Touch Controller
-/*End Touch Paramiters*/
+    //Initiate the TFT disply
+Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_RST);
+    // Initiate the TouchScreen.
+XPT2046_Touchscreen ts(T_CS);
+/*End Disply/Touch Paramiters*/
 
-Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_RST); // Initiate the TFT disply
-XPT2046_Touchscreen ts(T_CS); // Initiate the TouchScreen.
-
-/*Start of GUI Objects Paremiters*/
+/*Start of GUI Objects definitions*/
     //7 Sements rendering position//
 #define SEG_FRAME_X 20
 #define SEG_FRAME_Y 30 
     //Reset button parameters//
 #define rst_BUTTON_X 285
-#define rst_BUTTON_Y 205
+#define rst_BUTTON_Y 220
 #define rst_BUTTON_W 70
 #define rst_BUTTON_H 40
-boolean clickButton = false;
+    //Multyply button parameters//
+#define mlt_BUTTON_X 285
+#define mlt_BUTTON_Y 175
+#define mlt_BUTTON_W 70
+#define mlt_BUTTON_H 40
 /*End of GUI Objects Paremiters*/
 
-uint32_t Number = 999800;
-int Steep = 1;
+/*Start of AD9850 definitions*/
+#define DATA 14 // Pin 4 - data Line of the serial interface (DATE) 
+#define W_CLK 15 // pin 2 - Signal, the timer bus (W_CLK) 
+#define FQ_UD 16 // Pin 3 - change the frequency (FQ) 
+#define RESET 17 // Pin 5 - Reset module (RESET)
+#define pulseHigh(pin) {digitalWrite(pin, HIGH); digitalWrite(pin, LOW); } // a function of the heartbeat is set at the time the high status 
+/*End of Start of AD9850 definitions*/
 
-/* Start of Classes definition*/
+/*Classes definition*/
 class ScreenPoint {
 public:
     int16_t x;
@@ -332,32 +349,93 @@ public:
         tft.fillTriangle(dwnArrwTip.x, dwnArrwTip.y, dwnArrwLBase.x, dwnArrwLBase.y, dwnArrwRBase.x, dwnArrwRBase.y, errowColor);
     }
 
-    boolean isErrowPressed(ScreenPoint sp_) {
-        if ((sp_.x > upArrwR.X) && (sp_.x < (upArrwR.X + upArrwR.width))) {
+    int isErrowPressed(ScreenPoint sp_) {
+        if ((sp_.x > upArrwR.X - upArrwR.width /2) && (sp_.x < (upArrwR.X + (upArrwR.width /2.5)))) {
             if ((sp_.y > upArrwR.Y) && (sp_.y <= (upArrwR.Y + upArrwR.height))) {
-                Serial.println("up Errow btn hit");
+                //Serial.println("up Errow btn hit");
                 //upArrowHandler();
-                return false;
+                return 1;
             }
         }
-        if ((sp_.x > dwnArrwR.X) && (sp_.x < (dwnArrwR.X + dwnArrwR.width))) {
+        if ((sp_.x > dwnArrwR.X - upArrwR.width / 2) && (sp_.x < (dwnArrwR.X + dwnArrwR.width / 2.5))) {
             if ((sp_.y > dwnArrwR.Y) && (sp_.y <= (dwnArrwR.Y + dwnArrwR.height))) {
-                Serial.println("down Errow btn hit");
+                //Serial.println("down Errow btn hit");
                 //downArrowHandler();
-                return true;
+                return 2;
             }
         }
     }
 };
-/* End of Classes definition*/
+class CheckBox {
+private:
+    int xPos_;
+    int yPos_;
+    int boxWidth_;
+    int boxHeight_;
+    char* rectText_;
+    uint16_t checked_BOX_color_;   // = ILI9341_GREEN;
+    uint16_t unchecked_BOX_color_; // = displyBackground;
+    uint16_t rect_color_;   // Color of the full Box
+public:
+    boolean chkBoxFlag = false;
+    //Contructor
+    CheckBox(int xPos_, int yPos_, int boxWidth_, int boxHeight, char* rectText_, uint16_t rect_color_) {
+        this->xPos_ = xPos_;
+        this->yPos_ = yPos_;
+        this->boxWidth_ = boxWidth_;
+        this->boxHeight_ = boxWidth_;
+        this->rectText_ = rectText_;
+        this->checked_BOX_color_ = checked_BOX_color_;
+        this->unchecked_BOX_color_ = unchecked_BOX_color_;
+        this->rect_color_ = rect_color_;
+    };
+    void drawFrame() {
+        tft.fillRect(xPos_ - 5, yPos_ - 5, boxWidth_ + 60, boxHeight_ + 10, rect_color_);
+        uint16_t check_BOX_color_Frame = checked_BOX_color_ >> 6;
+        tft.drawRect(xPos_ - 2, yPos_ - 2, boxWidth_ + 4, boxHeight_ + 4, check_BOX_color_Frame); // (x, y, w, h)
+        tft.fillRect(xPos_, yPos_, boxWidth_, boxHeight_, unchecked_BOX_color_);
+        uint16_t rect_BOX_color_Frame = checked_BOX_color_ << 3;
+        tft.drawRect(xPos_ - 5, yPos_ - 5, boxWidth_ + 60, boxHeight_ + 11, rect_BOX_color_Frame);
+
+        tft.setCursor(xPos_ + 24, yPos_ + 15);
+        tft.setTextSize(1);
+        tft.setTextColor(RED);
+        tft.print(rectText_);
+    }
+    int IsChecked(ScreenPoint sp_) {
+        if ((sp_.x > xPos_ - boxWidth_) && (sp_.x < (xPos_ + (boxWidth_ * 2.5)))) {
+            if ((sp_.y > yPos_ + 10) && (sp_.y < (yPos_ + boxHeight_ + 25))) {
+                delay(200);
+                if (chkBoxFlag == false) {
+                    chkBoxFlag = true;
+                    //return 1;
+                }
+                else {
+                    chkBoxFlag = false;
+                    checked(displyBackground);
+                    //return 0;
+                }
+            }
+        }
+        return chkBoxFlag;
+    }
+    void checked(uint16_t chk_color) {
+        tft.fillRect(xPos_, yPos_, boxWidth_, boxHeight_, chk_color);
+    }
+};
+/*End of Classes definition*/
 
 /* Start of Classe instances*/
 SevenSegDisplay SevenSeg1 = SevenSegDisplay(SEG_FRAME_X, SEG_FRAME_Y, BLACK);
 up_downButton up_downButton_1 = up_downButton(223, 22, 32, 32, WHITE, BLUE);
+CheckBox CheckBox_1 = CheckBox(5, 215, 20, 20, "Auto", YELLOW);
+CheckBox CheckBox_2 = CheckBox(5, 175 , 20, 20, "X100", GREEN);
 Adafruit_GFX_Button Reset_BTN;
-/* End of Classe instances*/
+Adafruit_GFX_Button Multiply_BTN;    
+RotaryEncoder* encoder = nullptr; //A pointer to the dynamic created rotary encoder instance. // This will be done in setup()
+/*End of Classe instances*/
 
-/* Start of Functions definition*/
+/*Functions definition*/
 ScreenPoint getScreenCoords(int16_t x, int16_t y) {
     int16_t xCoord = round((x * xCalM) + xCalC);
     int16_t yCoord = round((y * yCalM) + yCalC);
@@ -367,19 +445,99 @@ ScreenPoint getScreenCoords(int16_t x, int16_t y) {
     if (yCoord >= tft.height()) yCoord = tft.height() - 1;
     return(ScreenPoint(xCoord, yCoord));
 }
-boolean buttonPressed_Handler(int xPos_, int yPos_, int buttonWidth_, int buttonHeight_, ScreenPoint sp_) {
-    if ((sp_.x > (xPos_ - (buttonWidth_ / 2)) && (sp_.x < (xPos_ + (buttonWidth_ / 2))))) {
-        if ((sp_.y > yPos_ - (buttonHeight_ / 2)) && (sp_.y <= (yPos_ + (buttonHeight_ / 2)))) {
-            //Serial.println("Click btn hit");
-            Reset_BTN.drawButton(true);
-            Number = 0;
+int buttonPressed_Handler(int xPos_, int yPos_, int buttonWidth_, int buttonHeight_, ScreenPoint sp_, Adafruit_GFX_Button* btn_Name) {
+    if ((sp_.x > (xPos_ - (buttonWidth_ /1.2))) && (sp_.x < (xPos_ + (buttonWidth_ / 3.5)))) {
+        if ((sp_.y > yPos_ - (buttonHeight_ / 4)) && (sp_.y <= (yPos_ + (buttonHeight_ / 1.5)))) {
+            //Serial.println(btn_Name);
+            btn_Name->drawButton(true);
+            return 1;
         }
     }
+    else return 0;
+}
+void Autocount() {
+    if (Multiply == 1) {
+        Number = (Number + Steep) + round(Number / 100) * Steep;
+    }
+    else if (Multiply == 0) {
+        Number = Number + Steep;
+    }
+    if (Number > 999998) {
+        Number = 999999;
+        Steep = 0;
+        SevenSeg1.render_digit_segments(Number);
+        set_Frequency(Number);
+    }
     else {
-        //return(false);
+        SevenSeg1.render_digit_segments(Number);
+        set_Frequency(Number);
+        Steep = 1;
     }
 }
-/* End of Functions definition*/
+void Rotary_checkPosition() //Rotary encoder
+{
+    encoder->tick(); // just call tick() to check the state.
+    newPos = encoder->getPosition();
+    if (pos != newPos) {
+        //Serial.print("pos:");
+        //Serial.print(newPos);
+        //Serial.print(" dir:");
+        //Serial.println((int)(encoder->getDirection()));
+        Direction = (int)encoder->getDirection();
+        if (Direction == -1) {
+            if (Multiply == 1) {
+                Number = (Number + Steep) + round(Number / 100) * Steep; ;
+            }
+            else if (Multiply == 0) {
+                Number = Number + Steep;
+            }
+        }
+        else if (Direction == 1) {
+            if (Multiply == 1) {
+                Number = (Number - 1) - round(Number / 100 * Steep);
+            }
+            else if (Multiply == 0) {
+                Number = Number - Steep;
+            }
+        }
+    }
+}
+void tfr_byte(byte data) // transfer byte bit after bit to the AD9850 module via the DATA line 
+{
+    for (int i = 0; i < 8; i++, data >>= 1) {
+        digitalWrite(DATA, data & 0x01);
+        pulseHigh(W_CLK); // after each bit signal CLK is set to high 
+    }
+}
+void set_Frequency(double frequency) { // frequency is calculated according to the formula on page 8 documentation = */2^32 
+    int32_t freq = frequency * 4294967295 / 125000000; // frequency 125 MHz AD9850 
+    for (int b = 0; b < 4; b++, freq >>= 8) {
+        tfr_byte(freq & 0xFF);
+    }
+    tfr_byte(0x000); // control byte of zero "0" for module AD9850 
+    pulseHigh(FQ_UD); // update frequency 
+}
+int check_Number() /*Keep number limit between 0 and 999999*/ {
+    if (Number <= 0) {
+        Number = 0;
+        Steep = 0;
+        return -1;
+    }
+    else if (Number >= 0) {
+        Steep = 1;
+        return 1;
+    }
+    if (Number > 999999) {
+        Number = 999999;
+        Steep = 0;
+        return -2;
+    }
+    else if (Number <= 999999) {
+        Steep = 1;
+        return 1;
+    };
+}
+/*End of Functions definition*/
 
 void setup()
 {
@@ -389,48 +547,102 @@ void setup()
     tft.fillScreen(displyBackground);
     ts.begin();
     ts.setRotation(ROTATION);
-    SevenSeg1.drawFrame(RED);
+    tft.setFont(&FreeSerifBold9pt7b); // Bigger Fonts for the CheckBox test
+    CheckBox_1.drawFrame();
+    CheckBox_2.drawFrame();
+    tft.setFont();
+    SevenSeg1.drawFrame(RED); // Smaller fonts for the buttons text
     up_downButton_1.littleArrows();
-    Reset_BTN.initButton(&tft, rst_BUTTON_X, rst_BUTTON_Y, rst_BUTTON_W, rst_BUTTON_H, CYAN, BLUE, YELLOW, "Reset", 2, 2);
+    Reset_BTN.initButton(&tft, rst_BUTTON_X, rst_BUTTON_Y, rst_BUTTON_W, rst_BUTTON_H, GREEN, RED, YELLOW, "Reset", 2, 2);
     Reset_BTN.drawButton();
+    Multiply_BTN.initButton(&tft, mlt_BUTTON_X, mlt_BUTTON_Y, mlt_BUTTON_W, mlt_BUTTON_H, CYAN, BLUE, YELLOW, "Multi", 2, 2);
+    Multiply_BTN.drawButton();    
+    encoder = new RotaryEncoder(PIN_IN1, PIN_IN2, RotaryEncoder::LatchMode::TWO03); // Rotary encode configurations
+    // use TWO03 mode when PIN_IN1, PIN_IN2 signals are both LOW or HIGH in latch position.
+    attachInterrupt(digitalPinToInterrupt(PIN_IN1), Rotary_checkPosition /*function call*/, CHANGE); // register interrupt routine
+    attachInterrupt(digitalPinToInterrupt(PIN_IN2), Rotary_checkPosition /*function call*/, CHANGE); // register interrupt routine
+    // Arduino - Arduino pin configuration 
+    pinMode(FQ_UD, OUTPUT);
+    pinMode(W_CLK, OUTPUT);
+    pinMode(DATA, OUTPUT);
+    pinMode(RESET, OUTPUT);
+    pulseHigh(RESET);
+    pulseHigh(W_CLK);
+    pulseHigh(FQ_UD); // toggles serial interface 
 }
 
-// Add the main program code into the continuous loop() function
 void loop()
 {
-    //Number = Number + Steep;
-    //SevenSeg1.render_digit_segments(Number);
-    //if (Number >= 999999) {
-    //    Number = 000000;
-    //}
+    if (AutoCountFlag == 1) {       
+        Autocount();
+    }
+    if (pos != newPos) /*Check Rotary encoder position*/ {
+        SevenSeg1.render_digit_segments(Number);
+        set_Frequency(Number); // Set the frequency for the frequency generator 
+        pos = newPos;
+    }
     ScreenPoint sp;
-    if (ts.touched()) {
+    if (ts.touched()) /*Check wich screen object was touched */ {
         p = ts.getPoint();
         sp = getScreenCoords(p.x, p.y);
-        Steep = 1;
-        SevenSeg1.render_digit_segments(Number);
-        if (!up_downButton_1.isErrowPressed(sp)) {
+        if (CheckBox_1.IsChecked(sp) == true) {
+            CheckBox_1.checked(RED);
+            AutoCountFlag = 1;
+        }
+        else if (CheckBox_1.chkBoxFlag == false) {
+            AutoCountFlag = 0;
+        }
+        if (CheckBox_2.IsChecked(sp) == true) {
+            CheckBox_2.checked(WHITE);
+            Multiply = 1;
+        }
+        else if (CheckBox_2.chkBoxFlag == false) {
+            Multiply = 0;
+        }
+        if (buttonPressed_Handler(rst_BUTTON_X, rst_BUTTON_Y, rst_BUTTON_W, rst_BUTTON_H, sp, &Reset_BTN) == 1) {
+            rst_clickButton = true;
+            Number = 0000000;
+            SevenSeg1.render_digit_segments(Number);
+        }
+        if (buttonPressed_Handler(mlt_BUTTON_X, mlt_BUTTON_Y, mlt_BUTTON_W, mlt_BUTTON_H, sp, &Multiply_BTN) == 1) {
+            mlt_clickButton = true;
+            Number = Number * 1.2;
             if (Number > 999998) {
                 Number = 999999;
                 Steep = 0;
+                SevenSeg1.render_digit_segments(Number);
+                set_Frequency(Number);
             }
-            else Steep = 1;;
-            Number = Number + Steep;
-        };
-        if (up_downButton_1.isErrowPressed(sp)) {
-            if (Number < 1) {
-                Number = 000000;
-                Steep = 0;
+            else SevenSeg1.render_digit_segments(Number);
+            set_Frequency(Number);
+        }
+        //UP Button
+        if (up_downButton_1.isErrowPressed(sp) == 1) { 
+            
+            if (check_Number() == 1) {
+                Number = Number + Steep;
+                SevenSeg1.render_digit_segments(Number);
+                set_Frequency(Number);
             }
-            else Steep = 1;
-            Number = Number - Steep;
-        };
-        if (buttonPressed_Handler(rst_BUTTON_X, rst_BUTTON_Y, rst_BUTTON_W, rst_BUTTON_H, sp)) {
-            clickButton = true;
+        }
+        //Down Button
+        if (up_downButton_1.isErrowPressed(sp) == 2) {
+            if (check_Number() == 1) {
+                Number = Number - Steep;
+                SevenSeg1.render_digit_segments(Number);
+                set_Frequency(Number);
+            }
         }
     }
-    else if (clickButton == true) { //If nothing is touched unclick the button (retur it to the original color)
+       
+    //If nothing is touched, make sure that Reset button is unclick (return to it's original color and state)
+    else if (rst_clickButton == true) {
         Reset_BTN.drawButton();
-        clickButton = false;
+        rst_clickButton = false;
     }
+    //If nothing is touched, make sure that Multiply button is unclick (return to it's original color and state)
+    else if (mlt_clickButton == true) {
+        Multiply_BTN.drawButton();
+        mlt_clickButton = false;
+    }    
 }
