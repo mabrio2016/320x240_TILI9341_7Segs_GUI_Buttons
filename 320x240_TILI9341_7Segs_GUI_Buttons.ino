@@ -6,6 +6,7 @@
     Author:     Marco Flag
 */
 
+#pragma region Included Libs
 #include "Adafruit_GFX.h"
 #include "Adafruit_ILI9341.h"
 #include "XPT2046_Touchscreen.h"
@@ -14,8 +15,9 @@
 #include <Fonts/FreeSerifBold9pt7b.h>
 #include "Math.h"
 #include <RotaryEncoder.h>
+#pragma endregion
 
-//Display Colors
+#pragma region Display Colors
 #define BLACK			ILI9341_BLACK      	//0x0000 /*   0,   0,   0 */
 #define NAVY			ILI9341_NAVY       	//0x000F /*   0,   0, 128 */
 #define DARKGREEN		ILI9341_DARKGREEN  	//0x03E0 /*   0, 128,   0 */
@@ -35,25 +37,26 @@
 #define ORANGE			ILI9341_ORANGE     	//0xFD20 /*   255, 165,   0 */
 #define GREENYELLOW		ILI9341_GREENYELLOW //0xAFE5 /*   173, 255,  47 */
 #define PINK			ILI9341_PINK       	//0xF81F
+#pragma endregion
 
-/*variable definitions*/
+#pragma region variable definitions
 boolean rst_clickButton = false;
 boolean mlt_clickButton = false;
 uint32_t Number = 0;
 int Steep = 1;
 int AutoCountFlag = 0;
 int Multiply = 0;
-/*End of variable definitions*/
+#pragma endregion
 
-//Rotary Encoder definitions
+#pragma region Rotary Encoder definitions
 #define PIN_IN1 2 // interrupt enabled 
 #define PIN_IN2 3 // interrupt enabled
 static int pos = 0;
 static int newPos = 0;
 static int Direction = 0;
-//End of Rotary Encoder paramiters
+#pragma endregion
 
-//TFT SPI display - SPI Display/TouchScreen definitions//
+#pragma region TFT SPI display - SPI Display/TouchScreen definitions
 #define TFT_CS 10
 #define TFT_DC 9
 #define TFT_MOSI 11 //Also connected Touchscreen "T_DIN" pin
@@ -61,11 +64,12 @@ static int Direction = 0;
 #define TFT_RST 8
 #define TFT_MISO 12 //Also connected Touchscreen "T_DO" pin
 
+
 #define T_CS 7   //Touchscreen T_CS pin (Chip select)
 #define T_IRQ 2  //Touchscreen T_IRQ pin (Chip interrupt request)
-//End TFT SPI display - SPI Display/TouchScreen wiring//
+#pragma endregion
 
-/*Disply/Touch definitions*/
+#pragma region Disply/Touch definitions and initialization
 #define MINPRESSURE 150
 #define MAXPRESSURE 1000
 #define ROTATION 1
@@ -78,9 +82,9 @@ TS_Point p; // This Class is defined in the XPT2046 library for Touch Controller
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_RST);
     // Initiate the TouchScreen.
 XPT2046_Touchscreen ts(T_CS);
-/*End Disply/Touch Paramiters*/
+#pragma endregion
 
-/*Start of GUI Objects definitions*/
+#pragma region GUI Objects definitions
     //7 Sements rendering position//
 #define SEG_FRAME_X 20
 #define SEG_FRAME_Y 30 
@@ -94,17 +98,17 @@ XPT2046_Touchscreen ts(T_CS);
 #define mlt_BUTTON_Y 175
 #define mlt_BUTTON_W 70
 #define mlt_BUTTON_H 40
-/*End of GUI Objects Paremiters*/
+#pragma endregion
 
-/*Start of AD9850 definitions*/
+#pragma region AD9850 definitions
 #define DATA 14 // Pin 4 - data Line of the serial interface (DATE) 
 #define W_CLK 15 // pin 2 - Signal, the timer bus (W_CLK) 
 #define FQ_UD 16 // Pin 3 - change the frequency (FQ) 
 #define RESET 17 // Pin 5 - Reset module (RESET)
 #define pulseHigh(pin) {digitalWrite(pin, HIGH); digitalWrite(pin, LOW); } // a function of the heartbeat is set at the time the high status 
-/*End of Start of AD9850 definitions*/
+#pragma endregion
 
-/*Classes definition*/
+#pragma region Classes definition
 class ScreenPoint {
 public:
     int16_t x;
@@ -423,9 +427,9 @@ public:
         tft.fillRect(xPos_, yPos_, boxWidth_, boxHeight_, chk_color);
     }
 };
-/*End of Classes definition*/
+#pragma endregion
 
-/* Start of Classe instances*/
+#pragma region Classe instances
 SevenSegDisplay SevenSeg1 = SevenSegDisplay(SEG_FRAME_X, SEG_FRAME_Y, BLACK);
 up_downButton up_downButton_1 = up_downButton(223, 22, 32, 32, WHITE, BLUE);
 CheckBox CheckBox_1 = CheckBox(5, 215, 20, 20, "Auto", YELLOW);
@@ -433,9 +437,9 @@ CheckBox CheckBox_2 = CheckBox(5, 175 , 20, 20, "X100", GREEN);
 Adafruit_GFX_Button Reset_BTN;
 Adafruit_GFX_Button Multiply_BTN;    
 RotaryEncoder* encoder = nullptr; //A pointer to the dynamic created rotary encoder instance. // This will be done in setup()
-/*End of Classe instances*/
+#pragma endregion
 
-/*Functions definition*/
+#pragma region Functions definition
 ScreenPoint getScreenCoords(int16_t x, int16_t y) {
     int16_t xCoord = round((x * xCalM) + xCalC);
     int16_t yCoord = round((y * yCalM) + yCalC);
@@ -537,7 +541,7 @@ int check_Number() /*Keep number limit between 0 and 999999*/ {
         return 1;
     };
 }
-/*End of Functions definition*/
+#pragma endregion
 
 void setup()
 {
